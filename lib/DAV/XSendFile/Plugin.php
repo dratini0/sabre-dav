@@ -11,6 +11,32 @@ use Sabre\HTTP\ResponseInterface;
 class Plugin extends ServerPlugin {
 
     /**
+     *@var string
+     */
+    private $manualMethod;
+
+    /**
+     *@var array
+     */
+    private $manualHelperParameters;
+    
+    /**
+     * Reference to server object.
+     *
+     * @var Server
+     */
+    protected $server;
+
+    function __construct($manualMethod = null, $manualHelperParameters = []) {
+    
+        if($manualMethod !== null) {
+            $this->manualMethod = $manualMethod;
+            $this->manualHelperParameters = $manualHelperParameters;
+        }
+
+    }
+
+    /**
      * Sets up the plugin and registers events. 
      * 
      * @param Server $server 
@@ -18,7 +44,8 @@ class Plugin extends ServerPlugin {
      */
     public function initialize(Server $server) {
 
-        $this->on('method:GET', [$this,'httpGet'], 90);
+        $server->on('method:GET', [$this,'httpGet'], 90);
+        $this->server = $server;
 
     }
 
@@ -32,7 +59,6 @@ class Plugin extends ServerPlugin {
         $path = $request->getPath();
         $node = $this->server->tree->getNodeForPath($path,0);
 
-        if (!$this->server->checkPreconditions(true)) return false;
         if (!$node instanceof IPhysicalFile) return;
 
         $physicalPath = $node->getPhysicalPath();
@@ -45,10 +71,12 @@ class Plugin extends ServerPlugin {
         if (!isset($httpHeaders['Content-Type'])) {
             $httpHeaders['Content-Type'] = 'application/octet-stream';
         }
-        $httpHeaders['X-SendFile'] = $physicalPath;
 
-        $response->addHeaders($httpHeaders);
-        $response->setStatus(200);
+        if($this->manualMethod === null) {
+            if($this->server->emit('XSendFileAutodetect', [$physicalPath, $request, $response, $httpHeaders])) return;
+        } else {
+            if($this->server->emit('XSendFile:' . $this->manualMethod, [$physicalPath, $request, $response, $httpHeaders, $this->manualHelperParameters])) return; //throw something?
+        }
 
         // Sending back false will interupt the event chain and tell the server
         // we've handled this method.
