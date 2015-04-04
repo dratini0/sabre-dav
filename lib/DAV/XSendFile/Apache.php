@@ -18,7 +18,7 @@ class Apache extends ServerPlugin {
     public function initialize(Server $server) {
 
         $server->on('XSendFileAutodetect', [$this, 'autodetect']);
-        $server->on('XSandFile:Apache', [$this, 'helper']);
+        $server->on('XSendFile:Apache', [$this, 'helper']);
 
     }
 
